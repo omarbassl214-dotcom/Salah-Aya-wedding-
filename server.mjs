@@ -53,8 +53,8 @@ if (priorSettings.locale !== 'ar') {
 
 // Requested four-second reveal and example event details; keep existing guest records.
 const revealSettings=JSON.parse(db.prepare('SELECT value FROM settings WHERE id=1').get().value);
-if(revealSettings.videoRevealRevision!==3){
- Object.assign(revealSettings,{envelopeVideo:defaults.envelopeVideo,envelopeLoopVideo:defaults.envelopeLoopVideo,loopEnd:.2,videoEnd:4,videoRevealRevision:3});
+if(revealSettings.videoRevealRevision!==2){
+ Object.assign(revealSettings,{envelopeVideo:defaults.envelopeVideo,envelopeLoopVideo:defaults.envelopeLoopVideo,loopEnd:.2,videoEnd:4,videoRevealRevision:2});
  for(const key of ['date','ceremonyTime','venue','address','mapsUrl'])if(!revealSettings[key])revealSettings[key]=defaults[key];
  db.prepare('UPDATE settings SET value=? WHERE id=1').run(JSON.stringify(revealSettings));
 }
@@ -160,7 +160,7 @@ const server = http.createServer(async (req,res) => {
  res.setHeader('X-Content-Type-Options','nosniff');
  res.setHeader('Referrer-Policy','same-origin');
  res.setHeader('X-Frame-Options','DENY');
- res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'self'; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+ res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'self'; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
  try {
    const actualPort = server.address()?.port || port;
    const allowedHosts = new Set([`localhost:${actualPort}`,`127.0.0.1:${actualPort}`]);
