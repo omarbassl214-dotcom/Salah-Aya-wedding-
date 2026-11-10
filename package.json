@@ -1,0 +1,19 @@
+{
+  "name": "salah-and-aya-wedding",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "دعوة زفاف صلاح وآية بالعربية، بالأخضر والوردي والذهبي، مع تأكيد حضور مبسط.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check server.mjs && node --check public/app.js && node --check public/admin.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0"
+  }
+}
