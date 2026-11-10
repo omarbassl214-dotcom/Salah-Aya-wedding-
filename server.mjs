@@ -1,3 +1,4 @@
+import { weddingConfig } from './lib/wedding-config.js';
 import http from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, createHash, timingSafeEqual, scryptSync } from 'node:crypto';
@@ -39,12 +40,7 @@ if(!db.prepare('PRAGMA table_info(rsvps)').all().some(column=>column.name==='com
  db.exec('ALTER TABLE rsvps ADD COLUMN companions INTEGER NOT NULL DEFAULT 0 CHECK(companions BETWEEN 0 AND 999)');
 }
 
-const defaults = {
- names: ['صلاح', 'آية'], date: '2027-05-14', ceremonyTime: '19:00', dinnerTime: '', timezone: 'Asia/Amman',
- venue: 'القاعة الكبرى — فندق فورسيزونز عمّان', address: 'الدوار الخامس، شارع الكندي، عمّان، الأردن', mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Four+Seasons+Hotel+Amman+Jordan', rsvpDeadline: '', dressCode: 'لباس رسمي',
- envelopeVideo: '/assets/envelope-reveal-4s.mp4', envelopeLoopVideo: '/assets/envelope-idle-020s.mp4', loopEnd: 0.2, videoEnd: 4,
- welcome: 'ندعوكم لمشاركتنا فرحة زفافنا'
-};
+const defaults = weddingConfig;
 db.prepare('INSERT OR IGNORE INTO settings (id,value) VALUES (1,?)').run(JSON.stringify(defaults));
 const settings = () => ({ ...defaults, ...JSON.parse(db.prepare('SELECT value FROM settings WHERE id=1').get().value) });
 

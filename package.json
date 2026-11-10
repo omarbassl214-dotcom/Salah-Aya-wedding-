@@ -11,9 +11,12 @@
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check public/app.js && node --check public/admin.js"
+    "check": "node --check server.mjs && node --check public/app.js && node --check public/admin.js && node --check lib/vercel-handler.js && node --check lib/neon-store.js && node --check api/health.js && node --check api/wedding.js && node --check api/rsvp/simple.js && node --check api/admin/counts.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0"
   }
 }
