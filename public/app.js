@@ -3,11 +3,12 @@ const $=selector=>document.querySelector(selector);
 const cover=$('#envelope-cover'),invitation=$('#invitation'),video=$('#envelope-video'),idle=$('#envelope-idle'),light=$('#envelope-light'),form=$('#rsvp-form');
 const buttons=Array.from(form.querySelectorAll('[name=decision]'));
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let wedding=null,response=null,phase='closed',videoReady=false,hasNativeIdle=false,frameId=null,glowStarted=null,countdownTimer;
+let wedding=null,response=null,phase='closed',hasNativeIdle=false,frameId=null,usesVideoFrames=false,glowStarted=null,countdownTimer;
+let openingPath='',loopPath='',openingLoad=null,openingUrl='',openingAbort=null,openingAttempt=0,lastFrameTime=0,lastProgressAt=0,recoveryAttempted=false;
 const timers=new Set();
 function schedule(callback,delay){const id=setTimeout(()=>{timers.delete(id);callback();},delay);timers.add(id);return id;}
 function clearTimers(){for(const id of timers)clearTimeout(id);timers.clear();}
-function stopTracking(){if(frameId!==null)cancelAnimationFrame(frameId);frameId=null;}
+function stopTracking(){if(frameId!==null){if(usesVideoFrames)video.cancelVideoFrameCallback(frameId);else cancelAnimationFrame(frameId);}frameId=null;}
 invitation.inert=true;
 const text=(selector,value)=>{const el=$(selector);if(el)el.textContent=value;};
 async function api(url,options={}){const res=await fetch(url,options);let data;try{data=await res.json();}catch{throw Error('تعذر الاتصال. يرجى المحاولة مرة أخرى.');}if(!res.ok)throw Error(data.error||'تعذر حفظ الرد. يرجى المحاولة مرة أخرى.');return data;}
@@ -37,78 +38,120 @@ function applyWedding(cfg){
   clearInterval(countdownTimer);updateCountdown();countdownTimer=setInterval(updateCountdown,1000);
   if(cfg.envelopeVideo&&!reducedMotion)setupVideo(cfg);
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateCountdown();});
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden){updateCountdown();if(phase==='opening'&&openingUrl){lastProgressAt=performance.now();video.play().catch(()=>resetOpening());}}
+});
 function playEnd(){return Math.min(Number(wedding?.videoEnd)||4,Number.isFinite(video.duration)?video.duration:Infinity);}
 function startLight(){
   if(glowStarted!==null||reducedMotion)return;
   glowStarted=performance.now();light.hidden=false;light.classList.remove('fading');light.classList.add('blooming');cover.classList.add('light-transition');
 }
-function trackMedia(){
-  if(phase==='closed'&&!hasNativeIdle&&video.currentTime>=(Number(wedding?.loopEnd)||.2)-.01)video.currentTime=0;
-  if(phase==='opening'){
-    const end=playEnd();
-    if(video.currentTime>=end-.6)startLight();
-    if(video.currentTime>=end-.015){finishOpening();return;}
-  }
-  if(phase==='opening'||phase==='closed'&&!hasNativeIdle)frameId=requestAnimationFrame(trackMedia);
+function nextFrame(){
+  if(phase!=='opening')return;
+  usesVideoFrames=typeof video.requestVideoFrameCallback==='function';
+  frameId=usesVideoFrames?video.requestVideoFrameCallback(trackMedia):requestAnimationFrame(trackMedia);
 }
-function beginTracking(){stopTracking();frameId=requestAnimationFrame(trackMedia);}
+function trackMedia(now,metadata){
+  frameId=null;if(phase!=='opening')return;
+  // Use presented frames when supported; a decoder stall must not advance the reveal.
+  const time=metadata?.mediaTime??video.currentTime;
+  if(time>lastFrameTime+.005){lastFrameTime=time;lastProgressAt=performance.now();}
+  if(time>=playEnd()-.45)startLight();
+  if(video.ended||time>=playEnd()-.015){finishOpening();return;}
+  nextFrame();
+}
+function beginTracking(){stopTracking();nextFrame();}
+function releaseIdle(){idle.pause();idle.hidden=true;idle.removeAttribute('src');idle.load();}
+function startIdle(){
+  if(!hasNativeIdle||reducedMotion)return;
+  if(idle.getAttribute('src')!==loopPath){idle.src=loopPath;idle.load();}
+  idle.play().then(()=>{if(phase==='closed')idle.hidden=false;else idle.pause();}).catch(()=>{idle.hidden=true;});
+}
+function prepareOpening(){
+  if(openingUrl)return Promise.resolve();
+  if(openingLoad)return openingLoad;
+  const path=openingPath,controller=new AbortController();openingAbort=controller;
+  const timeout=setTimeout(()=>controller.abort(),30000);
+  openingLoad=fetch(path,{cache:'force-cache',signal:controller.signal}).then(async result=>{
+    if(!result.ok)throw Error('Video download failed');
+    const blob=await result.blob();
+    if(blob.size<1000||!blob.type.startsWith('video/'))throw Error('Invalid video response');
+    if(path!==openingPath||controller.signal.aborted)throw Error('Video source changed');
+    openingUrl=URL.createObjectURL(blob);video.src=openingUrl;video.load();
+  }).catch(error=>{if(path===openingPath)openingLoad=null;throw error;}).finally(()=>{clearTimeout(timeout);if(openingAbort===controller)openingAbort=null;});
+  return openingLoad;
+}
 function setupVideo(cfg){
-  hasNativeIdle=!!cfg.envelopeLoopVideo;video.src=cfg.envelopeVideo;
-  video.addEventListener('loadeddata',()=>{
-    videoReady=true;
-    if(phase==='closed'&&!hasNativeIdle)video.play().then(()=>{video.hidden=false;beginTracking();}).catch(()=>video.hidden=true);
-  },{once:true});
-  video.addEventListener('playing',()=>{if(phase==='opening'){video.hidden=false;idle.hidden=true;}});
-  video.addEventListener('ended',()=>{if(phase==='opening')finishOpening();});
-  video.addEventListener('error',()=>{videoReady=false;video.hidden=true;if(phase==='opening')finishOpening();});
-  video.load();
-  if(hasNativeIdle){
-    idle.src=cfg.envelopeLoopVideo;idle.loop=true;
-    idle.addEventListener('loadeddata',()=>{if(phase==='closed')idle.play().then(()=>idle.hidden=false).catch(()=>idle.hidden=true);},{once:true});
-    idle.addEventListener('error',()=>{idle.hidden=true;});idle.load();
-  }
+  if(!cfg.envelopeVideo||cfg.envelopeVideo===openingPath)return;
+  openingAbort?.abort();if(openingUrl)URL.revokeObjectURL(openingUrl);
+  openingUrl='';openingLoad=null;openingPath=cfg.envelopeVideo;loopPath=cfg.envelopeLoopVideo||'';hasNativeIdle=!!loopPath;
+  video.muted=true;video.defaultMuted=true;video.playsInline=true;video.preload='auto';video.hidden=true;
+  idle.muted=true;idle.defaultMuted=true;idle.playsInline=true;idle.loop=true;
+  // Download the complete small clip before playback. Mobile preload="auto" is only a hint.
+  prepareOpening().catch(()=>{});if(phase==='closed')startIdle();
 }
+video.addEventListener('playing',()=>{
+  if(phase!=='opening')return;
+  cover.classList.remove('cover-loading');cover.classList.add('playing-video');video.hidden=false;lastProgressAt=performance.now();beginTracking();releaseIdle();
+});
+video.addEventListener('ended',()=>{if(phase==='opening')finishOpening();});
+video.addEventListener('error',()=>{if(phase==='opening')resetOpening();});
+idle.addEventListener('error',()=>{idle.hidden=true;});
 function reveal(illuminated=false){
   if(phase==='revealed')return;
-  clearTimers();stopTracking();phase='revealed';video.pause();idle.pause();
-  cover.classList.add('dismissed');cover.inert=true;invitation.inert=false;document.body.classList.remove('intro-active');window.scrollTo({top:0,behavior:'instant'});document.body.classList.add('reveal-enter');setupScrollReveals();
-  if(illuminated&&!reducedMotion){light.classList.add('fading');schedule(()=>{light.hidden=true;light.classList.remove('blooming','fading');},1100);}
+  ++openingAttempt;clearTimers();stopTracking();phase='revealed';video.pause();idle.pause();
+  cover.classList.add('dismissed');cover.classList.remove('cover-loading');cover.inert=true;invitation.inert=false;document.body.classList.remove('intro-active');window.scrollTo({top:0,behavior:'instant'});document.body.classList.add('reveal-enter');setupScrollReveals();
+  if(illuminated&&!reducedMotion){light.classList.add('fading');schedule(()=>{light.hidden=true;light.classList.remove('blooming','fading');},1000);}
   else{light.hidden=true;light.classList.remove('blooming','fading');}
   schedule(()=>{cover.hidden=true;$('#main-content').setAttribute('tabindex','-1');$('#main-content').focus({preventScroll:true});},reducedMotion?0:800);
   schedule(()=>document.body.classList.remove('reveal-enter'),1200);
 }
 function finishOpening(){
-  if(phase!=='opening')return;
+  // Never turn a timeout, network error, or rejected play() into a flash of the website.
+  if(phase!=='opening'||video.currentTime<playEnd()-.08)return;
   video.pause();idle.pause();stopTracking();clearTimers();phase='transition';startLight();
-  const wait=glowStarted===null?0:Math.max(0,620-(performance.now()-glowStarted));
+  const wait=glowStarted===null?0:Math.max(0,700-(performance.now()-glowStarted));
   schedule(()=>reveal(true),wait);
 }
-function openEnvelope(skip=false){
-  if(skip&&phase!=='closed'){reveal(false);return;}
-  if(phase!=='closed')return;
-  if(skip||reducedMotion){reveal(false);return;}
-  clearTimers();phase='opening';$('#open-envelope').disabled=true;cover.classList.add('opening');idle.pause();
-  if(video.getAttribute('src')){
-    cover.classList.add('playing-video');video.hidden=false;
-    const start=Number(wedding?.loopEnd)||.2;
-    if(video.readyState>=1)video.currentTime=Math.min(start,playEnd()-.05);
-    else video.addEventListener('loadedmetadata',()=>{if(phase==='opening')video.currentTime=Math.min(start,playEnd()-.05);},{once:true});
-    video.play().then(()=>{if(phase==='opening')beginTracking();}).catch(()=>finishOpening());
-    schedule(()=>{if(phase==='opening')finishOpening();},15000);
-  }else{startLight();schedule(()=>reveal(true),650);}
+function resetOpening(){
+  if(phase!=='opening')return;
+  ++openingAttempt;clearTimers();stopTracking();phase='closed';video.pause();video.load();glowStarted=null;
+  light.hidden=true;light.classList.remove('blooming','fading');cover.classList.remove('opening','playing-video','light-transition','cover-loading');
+  const button=$('#open-envelope');button.disabled=false;button.setAttribute('aria-busy','false');button.setAttribute('aria-label','فتح الدعوة');startIdle();
 }
-$('#open-envelope').addEventListener('click',()=>openEnvelope());$('#skip-intro')?.addEventListener('click',()=>openEnvelope(true));$('.skip-link')?.addEventListener('click',()=>openEnvelope(true));
-cover.addEventListener('keydown',event=>{if(event.key==='Escape')openEnvelope(true);if(event.key==='Tab'){const nodes=[$('#open-envelope'),$('#skip-intro')].filter(el=>el&&!el.disabled);if(!nodes.length){event.preventDefault();return;}if(event.shiftKey&&document.activeElement===nodes[0]){event.preventDefault();nodes.at(-1).focus();}else if(!event.shiftKey&&document.activeElement===nodes.at(-1)){event.preventDefault();nodes[0].focus();}}});$('#open-envelope').focus({preventScroll:true});
+function watchPlayback(attempt){
+  if(phase!=='opening'||attempt!==openingAttempt)return;
+  if(document.hidden)lastProgressAt=performance.now();
+  const stalledFor=performance.now()-lastProgressAt;
+  if(stalledFor>10000){resetOpening();return;}
+  if(stalledFor>4000&&!recoveryAttempted){recoveryAttempted=true;video.play().catch(()=>resetOpening());}
+  schedule(()=>watchPlayback(attempt),1000);
+}
+function playBuffered(attempt){
+  if(phase!=='opening'||attempt!==openingAttempt)return;
+  lastFrameTime=0;lastProgressAt=performance.now();recoveryAttempted=false;
+  // No seek at the tap: play from the first keyframe, including its closed 0.2 seconds.
+  video.play().then(()=>{if(phase==='opening'&&attempt===openingAttempt)beginTracking();}).catch(()=>resetOpening());
+  schedule(()=>watchPlayback(attempt),1000);
+}
+function openEnvelope(skip=false){
+  if(skip){reveal(false);return;}
+  if(phase!=='closed')return;
+  if(reducedMotion){reveal(false);return;}
+  clearTimers();phase='opening';const attempt=++openingAttempt;const button=$('#open-envelope');button.disabled=true;button.setAttribute('aria-busy','true');cover.classList.add('opening','cover-loading');releaseIdle();
+  // A warm clip starts within the tap gesture; a cold clip keeps the closed poster visible.
+  if(openingUrl)playBuffered(attempt);
+  else prepareOpening().then(()=>playBuffered(attempt)).catch(()=>{if(attempt===openingAttempt)resetOpening();});
+}
+$('#open-envelope').addEventListener('click',()=>openEnvelope());
+cover.addEventListener('keydown',event=>{if(event.key==='Escape')openEnvelope(true);if(event.key==='Tab'){event.preventDefault();if(!$('#open-envelope').disabled)$('#open-envelope').focus();}});$('#open-envelope').focus({preventScroll:true});
 $('#replay-intro').addEventListener('click',()=>{
-  clearTimers();stopTracking();window.scrollTo({top:0,behavior:'instant'});cover.hidden=false;cover.inert=false;invitation.inert=true;phase='closed';glowStarted=null;
-  light.hidden=true;light.classList.remove('blooming','fading');cover.classList.remove('dismissed','opening','playing-video','light-transition');$('#open-envelope').disabled=false;document.body.classList.add('intro-active');
-  if(!reducedMotion&&video.getAttribute('src')){
-    if(hasNativeIdle){video.pause();video.hidden=true;idle.currentTime=0;idle.play().then(()=>idle.hidden=false).catch(()=>idle.hidden=true);}
-    else{video.currentTime=0;video.play().then(()=>{video.hidden=false;beginTracking();}).catch(()=>video.hidden=true);}
-  }
-  $('#open-envelope').focus();
+  ++openingAttempt;clearTimers();stopTracking();window.scrollTo({top:0,behavior:'instant'});cover.hidden=false;cover.inert=false;invitation.inert=true;phase='closed';glowStarted=null;video.pause();video.load();
+  light.hidden=true;light.classList.remove('blooming','fading');cover.classList.remove('dismissed','opening','playing-video','light-transition','cover-loading');$('#open-envelope').disabled=false;$('#open-envelope').setAttribute('aria-busy','false');document.body.classList.add('intro-active');
+  if(!reducedMotion){startIdle();prepareOpening().catch(()=>{});}$('#open-envelope').focus();
 });
+// Prepare media independently of the RSVP/database request, including an immediate first tap.
+if(!reducedMotion)setupVideo({envelopeVideo:video.dataset.src,envelopeLoopVideo:idle.dataset.src});
 
 const companionPanel=$('#companions-panel'),companionInput=$('#companions-count');
 const stepperButtons=[$('#remove-companion'),$('#add-companion')];
@@ -126,7 +169,9 @@ function showPartyTotal(){
 }
 function setSaving(value){savingRsvp=value;buttons.forEach(button=>button.disabled=value);companionInput.disabled=value;form.elements.note.disabled=value;stepperButtons.forEach(button=>button.disabled=value);if(!value)showPartyTotal();}
 function showResponse(value){
-  response=value;text('#ticket-party-count',value?.attending?countLabel(value.partySize):'—');if(!value)return;
+  response=value;text('#ticket-party-count',value?.attending?countLabel(value.partySize):'—');
+  text('#pass-status-label',value?(value.attending?'تم تأكيد الحضور ✓ صالحة للدخول':'اعتذار عن الحضور'):'دعوة معتمدة ومصرح بالدخول');
+  if(!value)return;
   form.elements.note.value=value.note||'';companionInput.value=String(value.companions||0);companionPanel.hidden=!value.attending;
   const message=$('#response-message');message.hidden=false;message.classList.toggle('declined',!value.attending);
   message.textContent=value.attending?(value.partySize>1?`تم تأكيد حضورك مع المرافقين. الإجمالي: ${countLabel(value.partySize)} أشخاص.`:'تم تأكيد حضورك. بانتظارك بكل حب.'):'شكرًا لإخبارنا، لك منا كل المحبة.';
