@@ -59,6 +59,14 @@ if(revealSettings.videoRevealRevision!==2){
  db.prepare('UPDATE settings SET value=? WHERE id=1').run(JSON.stringify(revealSettings));
 }
 
+// Apply the couple's confirmed event details once, without touching guest responses.
+const eventSettings=JSON.parse(db.prepare('SELECT value FROM settings WHERE id=1').get().value);
+if(eventSettings.eventDetailsRevision!==1){
+ for(const key of ['date','ceremonyTime','dinnerTime','venue','address','mapsUrl'])eventSettings[key]=defaults[key];
+ eventSettings.eventDetailsRevision=1;
+ db.prepare('UPDATE settings SET value=? WHERE id=1').run(JSON.stringify(eventSettings));
+}
+
 const sessions = new Map();
 const limits = new Map();
 const hash = value => createHash('sha256').update(value).digest('hex');

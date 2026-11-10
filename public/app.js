@@ -11,7 +11,7 @@ function stopTracking(){if(frameId!==null)cancelAnimationFrame(frameId);frameId=
 invitation.inert=true;
 const text=(selector,value)=>{const el=$(selector);if(el)el.textContent=value;};
 async function api(url,options={}){const res=await fetch(url,options);let data;try{data=await res.json();}catch{throw Error('تعذر الاتصال. يرجى المحاولة مرة أخرى.');}if(!res.ok)throw Error(data.error||'تعذر حفظ الرد. يرجى المحاولة مرة أخرى.');return data;}
-function dateLabel(value){return new Intl.DateTimeFormat('ar-JO',{calendar:'gregory',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(value+'T12:00:00'));}
+function dateLabel(value){return new Intl.DateTimeFormat('ar-EG',{calendar:'gregory',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(value+'T12:00:00'));}
 function timeLabel(value){const[h,m]=value.split(':').map(Number);return new Intl.DateTimeFormat('ar-JO',{hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(2000,0,1,h,m));}
 function updateCountdown(){
   if(!wedding)return;
@@ -29,7 +29,7 @@ function applyWedding(cfg){
   document.querySelectorAll('[data-couple]').forEach(el=>el.replaceChildren(document.createTextNode(cfg.names[0]+' '),Object.assign(document.createElement('span'),{textContent:'و'}),document.createTextNode(' '+cfg.names[1])));
   text('#name-one',cfg.names[0]);text('#name-two',cfg.names[1]);setHeroLettering(cfg.names);text('#welcome-copy',cfg.welcome||'ندعوكم لمشاركتنا فرحة زفافنا');
   text('#detail-date',cfg.date?dateLabel(cfg.date):'سنعلن الموعد قريبًا');$('#detail-time').hidden=!cfg.ceremonyTime;
-  if(cfg.ceremonyTime)text('#detail-time','الساعة '+timeLabel(cfg.ceremonyTime)+' — بتوقيت عمّان');
+  if(cfg.ceremonyTime)text('#detail-time','موعد الحفل: الساعة '+timeLabel(cfg.ceremonyTime)+' — بتوقيت عمّان');
   text('#detail-venue',cfg.venue||'سنشارككم المكان قريبًا');text('#detail-address',cfg.address||'');
   const location=$('#venue-card');const mapUrl=cfg.mapsUrl||(cfg.venue?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(cfg.venue+' الأردن'):'');
   location.setAttribute('aria-disabled',String(!mapUrl));if(mapUrl)location.href=mapUrl;else location.removeAttribute('href');
@@ -126,7 +126,7 @@ function showPartyTotal(){
 }
 function setSaving(value){savingRsvp=value;buttons.forEach(button=>button.disabled=value);companionInput.disabled=value;form.elements.note.disabled=value;stepperButtons.forEach(button=>button.disabled=value);if(!value)showPartyTotal();}
 function showResponse(value){
-  response=value;if(!value)return;
+  response=value;text('#ticket-party-count',value?.attending?countLabel(value.partySize):'—');if(!value)return;
   form.elements.note.value=value.note||'';companionInput.value=String(value.companions||0);companionPanel.hidden=!value.attending;
   const message=$('#response-message');message.hidden=false;message.classList.toggle('declined',!value.attending);
   message.textContent=value.attending?(value.partySize>1?`تم تأكيد حضورك مع المرافقين. الإجمالي: ${countLabel(value.partySize)} أشخاص.`:'تم تأكيد حضورك. بانتظارك بكل حب.'):'شكرًا لإخبارنا، لك منا كل المحبة.';
