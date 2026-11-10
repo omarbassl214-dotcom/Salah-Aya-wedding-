@@ -135,6 +135,7 @@ function playBuffered(attempt){
   schedule(()=>watchPlayback(attempt),1000);
 }
 function openEnvelope(skip=false){
+  startMusic();
   if(skip){reveal(false);return;}
   if(phase!=='closed')return;
   if(reducedMotion){reveal(false);return;}
@@ -152,6 +153,88 @@ $('#replay-intro').addEventListener('click',()=>{
 });
 // Prepare media independently of the RSVP/database request, including an immediate first tap.
 if(!reducedMotion)setupVideo({envelopeVideo:video.dataset.src,envelopeLoopVideo:idle.dataset.src});
+
+const music=$('#wedding-music'),musicToggle=$('#music-toggle');
+let musicFading=null,isUserMuted=false,musicStarted=false;
+const TARGET_VOLUME=0.75;
+
+function setVolume(target,duration=1500){
+  if(!music)return Promise.resolve();
+  if(musicFading)clearInterval(musicFading);
+  return new Promise(resolve=>{
+    const startVol=music.volume,diff=target-startVol;
+    if(Math.abs(diff)<0.01||duration<=0){music.volume=target;resolve();return;}
+    const steps=25,stepTime=duration/steps;let currentStep=0;
+    musicFading=setInterval(()=>{
+      currentStep++;
+      const progress=currentStep/steps;
+      music.volume=Math.max(0,Math.min(1,startVol+diff*progress));
+      if(currentStep>=steps){clearInterval(musicFading);musicFading=null;music.volume=target;resolve();}
+    },stepTime);
+  });
+}
+
+function startMusic(){
+  if(!music||musicStarted||isUserMuted)return;
+  musicStarted=true;
+  music.volume=0;
+  music.loop=true;
+  const p=music.play();
+  if(p!==undefined){
+    p.then(()=>{
+      setVolume(TARGET_VOLUME,2000);
+      if(musicToggle)musicToggle.hidden=false;
+    }).catch(()=>{
+      if(musicToggle)musicToggle.hidden=false;
+    });
+  }
+}
+
+let isLoopFading=false;
+if(music){
+  music.addEventListener('timeupdate',()=>{
+    if(isUserMuted||isLoopFading||!music.duration)return;
+    const remaining=music.duration-music.currentTime;
+    if(remaining<=1.5&&remaining>0.2){
+      isLoopFading=true;
+      setVolume(0.12,1200).then(()=>{
+        const checkRestart=setInterval(()=>{
+          if(music.currentTime<2){
+            clearInterval(checkRestart);
+            setVolume(TARGET_VOLUME,1400).then(()=>{isLoopFading=false;});
+          }
+        },100);
+      });
+    }
+  });
+}
+
+function toggleMusic(){
+  if(!music)return;
+  if(isUserMuted||music.paused){
+    isUserMuted=false;musicStarted=true;
+    updateMusicUI(true);
+    music.play().then(()=>setVolume(TARGET_VOLUME,600)).catch(()=>{});
+  }else{
+    isUserMuted=true;
+    setVolume(0,400).then(()=>{music.pause();updateMusicUI(false);});
+  }
+}
+
+function updateMusicUI(isPlaying){
+  if(!musicToggle)return;
+  musicToggle.setAttribute('aria-pressed',String(!isPlaying));
+  musicToggle.setAttribute('aria-label',isPlaying?'كتم الموسيقى':'تشغيل الموسيقى');
+  musicToggle.classList.toggle('is-muted',!isPlaying);
+  const playingIcon=musicToggle.querySelector('.icon-playing');
+  const mutedIcon=musicToggle.querySelector('.icon-muted');
+  if(playingIcon)playingIcon.hidden=!isPlaying;
+  if(mutedIcon)mutedIcon.hidden=isPlaying;
+}
+
+if(musicToggle){
+  musicToggle.addEventListener('click',toggleMusic);
+}
 
 const companionPanel=$('#companions-panel'),companionInput=$('#companions-count');
 const stepperButtons=[$('#remove-companion'),$('#add-companion')];

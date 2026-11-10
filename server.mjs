@@ -53,8 +53,8 @@ if (priorSettings.locale !== 'ar') {
 
 // Requested four-second reveal and example event details; keep existing guest records.
 const revealSettings=JSON.parse(db.prepare('SELECT value FROM settings WHERE id=1').get().value);
-if(revealSettings.videoRevealRevision!==2){
- Object.assign(revealSettings,{envelopeVideo:defaults.envelopeVideo,envelopeLoopVideo:defaults.envelopeLoopVideo,loopEnd:.2,videoEnd:4,videoRevealRevision:2});
+if(revealSettings.videoRevealRevision!==3||revealSettings.ceremonyTime!==defaults.ceremonyTime){
+ Object.assign(revealSettings,{envelopeVideo:defaults.envelopeVideo,envelopeLoopVideo:defaults.envelopeLoopVideo,loopEnd:0.2,videoEnd:4,videoRevealRevision:3,ceremonyTime:defaults.ceremonyTime});
  for(const key of ['date','ceremonyTime','venue','address','mapsUrl'])if(!revealSettings[key])revealSettings[key]=defaults[key];
  db.prepare('UPDATE settings SET value=? WHERE id=1').run(JSON.stringify(revealSettings));
 }
@@ -155,12 +155,12 @@ function validateSettings(v) {
 }
 function guests() { return db.prepare('SELECT id,name,contact,attending,adults,children,companions,guest_names,dietary,note,checked_in,created_at,updated_at FROM rsvps ORDER BY created_at DESC').all().map(row => ({ ...row, guest_names: JSON.parse(row.guest_names) })); }
 function stats(rows) { return { responses: rows.length, confirmedParties: rows.filter(x => x.attending).length, confirmedGuests: rows.reduce((a,x) => a + (x.attending ? x.adults+x.children+(x.companions||0) : 0),0), adults: rows.reduce((a,x) => a+x.adults,0), children: rows.reduce((a,x) => a+x.children,0), declined: rows.filter(x => !x.attending).length, checkedIn: rows.reduce((a,x) => a+x.checked_in,0) }; }
-const mime = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.svg':'image/svg+xml', '.ttf':'font/ttf', '.woff2':'font/woff2', '.mp4':'video/mp4', '.webm':'video/webm', '.ico':'image/x-icon' };
+const mime = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.svg':'image/svg+xml', '.ttf':'font/ttf', '.woff2':'font/woff2', '.mp4':'video/mp4', '.webm':'video/webm', '.mp3':'audio/mpeg', '.ico':'image/x-icon' };
 const server = http.createServer(async (req,res) => {
  res.setHeader('X-Content-Type-Options','nosniff');
  res.setHeader('Referrer-Policy','same-origin');
  res.setHeader('X-Frame-Options','DENY');
- res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'self'; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+ res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'self'; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
  try {
    const actualPort = server.address()?.port || port;
    const allowedHosts = new Set([`localhost:${actualPort}`,`127.0.0.1:${actualPort}`]);

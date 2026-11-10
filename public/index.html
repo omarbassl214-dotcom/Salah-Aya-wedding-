@@ -1,6 +1,22 @@
 <!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#214937"><meta name="description" content="دعوة زفاف صلاح وآية. يسعدنا حضوركم ومشاركتكم فرحتنا."><title>صلاح وآية | دعوة زفاف</title><link rel="icon" type="image/svg+xml" href="/assets/monogram.svg"><link rel="preload" as="image" href="/assets/envelope-video-poster.jpg"><link rel="preload" as="image" href="/assets/green-velvet-hero.png"><link rel="stylesheet" href="/arabic-fonts.css"><link rel="stylesheet" href="/styles.css?v=mobile-video-3"><script src="/app.js?v=mobile-video-3" type="module"></script></head>
 <body class="intro-active">
+<audio id="wedding-music" src="/assets/wedding-song.mp3" preload="auto" loop></audio>
+<button id="music-toggle" class="music-toggle" aria-label="كتم الموسيقى" title="كتم الموسيقى" hidden>
+ <span class="music-icon-wrap" aria-hidden="true">
+  <svg class="music-icon icon-playing" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+   <path class="sound-wave wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+   <path class="sound-wave wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+  </svg>
+  <svg class="music-icon icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden>
+   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+   <line x1="23" y1="9" x2="17" y2="15"></line>
+   <line x1="17" y1="9" x2="23" y2="15"></line>
+  </svg>
+ </span>
+ <span class="music-label">الموسيقى</span>
+</button>
 <div class="envelope-cover" id="envelope-cover" role="dialog" aria-modal="true" aria-label="دعوة زفاف صلاح وآية"><img class="cover-photo" src="/assets/envelope-video-poster.jpg" alt="ظرف أخضر مزخرف بالذهب، بختم شمع ذهبي يحمل حرفَي ص وآ، مع شريط وردي" width="1080" height="1920" fetchpriority="high"><video id="envelope-idle" src="/assets/envelope-idle-mobile.mp4" data-src="/assets/envelope-idle-mobile.mp4" autoplay muted playsinline webkit-playsinline loop preload="auto" disablepictureinpicture aria-hidden="true"></video><video id="envelope-video" data-src="/assets/envelope-opening-mobile.mp4" muted playsinline webkit-playsinline preload="auto" disablepictureinpicture aria-hidden="true" hidden></video><div class="cover-shade"></div><div class="cover-heading"><p>دعوة بحب</p></div><button id="open-envelope" class="envelope-tap" aria-label="فتح الدعوة"><span>اضغط لفتح الدعوة</span></button></div>
 <div id="envelope-light" class="envelope-light" aria-hidden="true" hidden><div class="light-bloom"></div></div><div id="invitation"><main id="main-content" class="invitation-card"><section class="wedding-intro photo-hero" aria-labelledby="couple-names"><img class="hero-artwork" src="/assets/green-velvet-hero.png" alt="مخمل أخضر يحيط به شريط وردي وبتلات ورد" width="1334" height="731" fetchpriority="high"><div class="hero-copy"><p class="hero-blessing hero-line">بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيم</p><p class="intro-line hero-line">بكل الحب والسرور</p><h1 id="couple-names" class="hero-names"><span class="sr-only"><span id="name-one">صلاح</span> و<span id="name-two">آية</span></span><svg class="names-calligraphy" viewBox="0 0 600 170" aria-hidden="true" focusable="false"><text class="name-outline" x="300" y="115" text-anchor="middle" direction="rtl" unicode-bidi="embed" data-hero-names>صلاح وآية</text><text class="name-ink" x="300" y="115" text-anchor="middle" direction="rtl" unicode-bidi="embed" data-hero-names>صلاح وآية</text></svg></h1><p id="welcome-copy" class="hero-line">ندعوكم لمشاركتنا فرحة زفافنا</p><p class="invitation-wish hero-line">بوجودكم تكتمل فرحتنا</p></div></section>
 <section class="formal-invitation" aria-labelledby="formal-title">
