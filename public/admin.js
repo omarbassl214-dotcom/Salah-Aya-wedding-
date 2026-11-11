@@ -9,5 +9,17 @@ async function load(){
  finally{loading=false;$('#refresh').disabled=false;}
 }
 $('#refresh').addEventListener('click',load);
+$('#reset-button')?.addEventListener('click',async()=>{
+ if(!confirm('هل أنت متأكد من تصفير العداد ومسح جميع ردود الاختبار؟'))return;
+ const btn=$('#reset-button');btn.disabled=true;
+ try{
+  const res=await fetch('/api/admin/reset',{method:'POST'});
+  const data=await res.json();
+  if(!res.ok)throw Error(data.error||'تعذر تصفير العداد.');
+  await load();
+  alert('تم تصفير العداد بنجاح!');
+ }catch(e){showError(e.message);}
+ finally{btn.disabled=false;}
+});
 load();setInterval(()=>{if(!document.hidden)load();},5000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});

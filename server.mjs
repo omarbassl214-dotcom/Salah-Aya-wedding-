@@ -203,6 +203,7 @@ const server = http.createServer(async (req,res) => {
    if (req.method === 'POST' && url.pathname === '/api/admin/logout') { const t=auth(req); sessions.delete(hash(t)); return json(res,200,{ok:true},{'Set-Cookie':cookie('',0)}); }
    // The password-free dashboard exposes aggregate counts only.
    if(req.method==='GET' && url.pathname==='/api/admin/counts'){const s=stats(guests());return json(res,200,{yes:s.confirmedGuests,no:s.declined});}
+    if(req.method==='POST' && url.pathname==='/api/admin/reset'){db.exec('DELETE FROM rsvps');return json(res,200,{ok:true,yes:0,no:0});}
    if (url.pathname.startsWith('/api/admin/')) {
      auth(req);
      if (req.method === 'GET' && url.pathname === '/api/admin/guests') { const rows=guests(); return json(res,200,{guests:rows,stats:stats(rows)}); }
